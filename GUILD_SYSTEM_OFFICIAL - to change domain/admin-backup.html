@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backup Manager</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7fb; color: #2d3748; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        
+        header { background: white; padding: 20px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        h1 { font-size: 32px; margin-bottom: 8px; }
+        .subtitle { color: #718096; font-size: 16px; }
+        .logout-btn { position: absolute; top: 20px; right: 20px; padding: 10px 16px; background: #e53e3e; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .logout-btn:hover { background: #c53030; }
+        
+        .actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .action-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .action-card h3 { margin-bottom: 12px; font-size: 18px; }
+        .action-card p { color: #718096; font-size: 14px; margin-bottom: 15px; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s ease; font-size: 14px; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); }
+        .btn-secondary { background: #edf2ff; color: #3730a3; }
+        .btn-secondary:hover { background: #dde2ff; }
+        
+        .section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+        .section h2 { font-size: 22px; margin-bottom: 15px; padding-bottom: 12px; border-bottom: 2px solid #e2e8f0; }
+        
+        .backup-list { display: grid; gap: 12px; }
+        .backup-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f7fafc; border-radius: 8px; border-left: 4px solid #667eea; }
+        .backup-info { flex: 1; }
+        .backup-name { font-weight: 600; margin-bottom: 4px; }
+        .backup-meta { font-size: 13px; color: #718096; }
+        .backup-actions { display: flex; gap: 10px; }
+        .btn-small { padding: 8px 12px; font-size: 12px; }
+        
+        .loading { display: none; text-align: center; padding: 20px; }
+        .loading.active { display: block; }
+        .spinner { border: 3px solid #e2e8f0; border-top-color: #667eea; border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; margin: 0 auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .message { padding: 15px 20px; border-radius: 8px; margin-bottom: 15px; }
+        .message.success { background: #e6ffed; color: #166534; border-left: 4px solid #10b981; }
+        .message.error { background: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
+        .message.info { background: #e8f0fe; color: #1e3a8a; border-left: 4px solid #3b82f6; }
+        
+        .interval-selector { margin-bottom: 20px; }
+        .interval-selector label { display: block; margin-bottom: 8px; font-weight: 600; }
+        select { 
+            padding: 12px 14px; 
+            border: 2px solid #cbd5e0; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            width: 100%; 
+            max-width: 100%;
+            cursor: pointer;
+            background: white;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        select:hover { border-color: #667eea; background: #f9fafb; }
+        select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        select:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        #interval-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23667eea' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+        
+        .no-data { text-align: center; padding: 40px 20px; color: #718096; }
+        .no-data svg { width: 64px; height: 64px; margin-bottom: 15px; opacity: 0.5; }
+        
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat { background: #f7fafc; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: 700; color: #667eea; }
+        .stat-label { font-size: 13px; color: #718096; margin-top: 4px; }
+        
+        .pagination-controls { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 20px; padding-top: 20px; border-top: 2px solid #e2e8f0; flex-wrap: wrap; }
+        .pagination-btn { padding: 8px 12px; border: 2px solid #cbd5e0; background: white; color: #2d3748; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease; font-size: 13px; }
+        .pagination-btn:hover { border-color: #667eea; color: #667eea; }
+        .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pagination-btn.active { background: #667eea; color: white; border-color: #667eea; }
+        .pagination-input { padding: 6px 10px; border: 2px solid #cbd5e0; border-radius: 6px; width: 60px; text-align: center; font-weight: 500; }
+        .pagination-input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        .pagination-info { font-size: 13px; color: #718096; font-weight: 500; white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <a href="backup-logout.php" class="logout-btn">Logout</a>
+    
+    <div class="container">
+        <header>
+            <h1>📦 Backup Manager</h1>
+            <p class="subtitle">Manage database backups and restore points</p>
+        </header>
+
+        <div id="message-container"></div>
+
+        <div class="actions">
+            <div class="action-card">
+                <h3>🔄 Create Backup</h3>
+                <p>Create a manual backup of your database right now.</p>
+                <button class="btn btn-primary" onclick="createBackup()">Create Now</button>
+            </div>
+            
+            <div class="action-card">
+                <h3>⏰ Auto Backups</h3>
+                <p>Set automatic backup intervals.</p>
+                <div style="position: relative; margin-bottom: 12px;">
+                    <select id="interval-select" onchange="setBackupInterval(this.value)" style="width: 100%; padding: 12px 14px 12px 14px; border: 2px solid #cbd5e0; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.2s ease;">
+                        <option value="">Select interval...</option>
+                        <option value="5min">Every 5 minutes</option>
+                        <option value="10min">Every 10 minutes</option>
+                        <option value="30min">Every 30 minutes</option>
+                        <option value="1h">Every 1 hour</option>
+                        <option value="3h">Every 3 hours</option>
+                        <option value="5h">Every 5 hours</option>
+                        <option value="1day">Every 1 day</option>
+                        <option value="2day">Every 2 days</option>
+                        <option value="3day">Every 3 days</option>
+                        <option value="1week">Every 1 week</option>
+                    </select>
+                    <div id="interval-saving" style="display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #667eea;">
+                        <span style="display: inline-block; width: 12px; height: 12px; border: 2px solid #e2e8f0; border-top-color: #667eea; border-radius: 50%; animation: spin 0.6s linear infinite;"></span>
+                    </div>
+                </div>
+                <p id="current-interval" style="font-size: 12px; color: #718096; margin: 0; font-weight: 500;">Loading current interval...</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Statistics</h2>
+            <div class="stats" id="stats">
+                <div class="stat">
+                    <div class="stat-value" id="backup-count">0</div>
+                    <div class="stat-label">Total Backups</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="total-size">0 MB</div>
+                    <div class="stat-label">Total Size</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="last-backup">Never</div>
+                    <div class="stat-label">Last Backup</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Available Backups</h2>
+            <div id="backup-list" class="backup-list">
+                <div class="loading active">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+            <div id="pagination-controls" class="pagination-controls" style="display: none;">
+                <button class="pagination-btn" id="btn-first" onclick="goToFirstPage()" title="First page">«</button>
+                <button class="pagination-btn" id="btn-prev" onclick="goToPreviousPage()" title="Previous page">&lt;</button>
+                <span class="pagination-info">Page</span>
+                <input type="number" id="page-input" class="pagination-input" min="1" placeholder="1" onkeypress="if(event.key==='Enter') goToPageNumber()" onchange="goToPageNumber()">
+                <span class="pagination-info" id="page-info">of 1</span>
+                <button class="pagination-btn" id="btn-next" onclick="goToNextPage()" title="Next page">&gt;</button>
+                <button class="pagination-btn" id="btn-last" onclick="goToLastPage()" title="Last page">»</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Pagination variables
+        let allBackups = [];
+        let currentPage = 1;
+        const itemsPerPage = 5;
+
+        function showMessage(message, type = 'info') {
+            const container = document.getElementById('message-container');
+            const msg = document.createElement('div');
+            msg.className = `message ${type}`;
+            msg.textContent = message;
+            container.innerHTML = '';
+            container.appendChild(msg);
+            setTimeout(() => msg.remove(), 5000);
+        }
+
+        function getTotalPages() {
+            return Math.ceil(allBackups.length / itemsPerPage);
+        }
+
+        function renderCurrentPage() {
+            const listDiv = document.getElementById('backup-list');
+            const paginationDiv = document.getElementById('pagination-controls');
+            
+            if (allBackups.length === 0) {
+                listDiv.innerHTML = '<div class="no-data">No backups yet. Create one to get started.</div>';
+                paginationDiv.style.display = 'none';
+                return;
+            }
+
+            const totalPages = getTotalPages();
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const pageBackups = allBackups.slice(startIndex, endIndex);
+
+            listDiv.innerHTML = pageBackups.map(backup => `
+                <div class="backup-item">
+                    <div class="backup-info">
+                        <div class="backup-name">${backup.filename}</div>
+                        <div class="backup-meta">
+                            ${backup.date} • ${backup.size}
+                        </div>
+                    </div>
+                    <div class="backup-actions">
+                        <button class="btn btn-small btn-primary" onclick="downloadBackup('${backup.filename}')">Download</button>
+                        <button class="btn btn-small btn-secondary" onclick="deleteBackup('${backup.filename}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Show pagination controls only if there's more than one page
+            if (totalPages > 1) {
+                paginationDiv.style.display = 'flex';
+                updatePaginationControls(totalPages);
+            } else {
+                paginationDiv.style.display = 'none';
+            }
+        }
+
+        function updatePaginationControls(totalPages) {
+            document.getElementById('page-input').value = currentPage;
+            document.getElementById('page-info').textContent = `of ${totalPages}`;
+            
+            // Disable/enable buttons based on current page
+            document.getElementById('btn-first').disabled = currentPage === 1;
+            document.getElementById('btn-prev').disabled = currentPage === 1;
+            document.getElementById('btn-next').disabled = currentPage === totalPages;
+            document.getElementById('btn-last').disabled = currentPage === totalPages;
+        }
+
+        function goToFirstPage() {
+            currentPage = 1;
+            renderCurrentPage();
+        }
+
+        function goToLastPage() {
+            currentPage = getTotalPages();
+            renderCurrentPage();
+        }
+
+        function goToPreviousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderCurrentPage();
+            }
+        }
+
+        function goToNextPage() {
+            const totalPages = getTotalPages();
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderCurrentPage();
+            }
+        }
+
+        function goToPageNumber() {
+            const input = document.getElementById('page-input');
+            const pageNum = parseInt(input.value);
+            const totalPages = getTotalPages();
+
+            if (isNaN(pageNum) || pageNum < 1) {
+                showMessage('Please enter a valid page number', 'error');
+                input.value = currentPage;
+                return;
+            }
+
+            if (pageNum > totalPages) {
+                showMessage(`Page ${pageNum} exceeds total pages (${totalPages})`, 'error');
+                input.value = currentPage;
+                return;
+            }
+
+            currentPage = pageNum;
+            renderCurrentPage();
+        }
+
+        function loadBackups() {
+            const listDiv = document.getElementById('backup-list');
+            listDiv.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+            
+            fetch('php/backup-api.php?action=list')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.backups && data.backups.length > 0) {
+                            allBackups = data.backups;
+                            currentPage = 1; // Reset to first page
+                            renderCurrentPage();
+                        } else {
+                            allBackups = [];
+                            currentPage = 1;
+                            renderCurrentPage();
+                        }
+                        updateStats(data);
+                    } else {
+                        showMessage('Failed to load backups: ' + data.message, 'error');
+                    }
+                })
+                .catch(err => showMessage('Error: ' + err.message, 'error'));
+        }
+
+        function updateStats(data) {
+            document.getElementById('backup-count').textContent = data.backup_count || 0;
+            document.getElementById('total-size').textContent = data.total_size || '0 MB';
+            document.getElementById('last-backup').textContent = data.last_backup || 'Never';
+        }
+
+        function createBackup() {
+            if (confirm('Create a new backup now? This may take a moment.')) {
+                showMessage('Creating backup...', 'info');
+                fetch('php/backup-api.php?action=create', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            showMessage('Backup created successfully!', 'success');
+                            loadBackups();
+                        } else {
+                            showMessage('Backup failed: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(err => showMessage('Error: ' + err.message, 'error'));
+            }
+        }
+
+        function downloadBackup(filename) {
+            window.location.href = `php/backup-api.php?action=download&file=${encodeURIComponent(filename)}`;
+        }
+
+        function deleteBackup(filename) {
+            if (confirm('Delete this backup? This cannot be undone.')) {
+                fetch(`php/backup-api.php?action=delete&file=${encodeURIComponent(filename)}`, { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            showMessage('Backup deleted', 'success');
+                            loadBackups();
+                        } else {
+                            showMessage('Delete failed: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(err => showMessage('Error: ' + err.message, 'error'));
+            }
+        }
+
+        function showIntervalSelector() {
+            document.getElementById('interval-section').style.display = 'block';
+            document.getElementById('interval-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideIntervalSelector() {
+            document.getElementById('interval-section').style.display = 'none';
+        }
+
+        function setBackupInterval(interval) {
+            if (!interval) return;
+            
+            const select = document.getElementById('interval-select');
+            const savingIndicator = document.getElementById('interval-saving');
+            
+            // Show loading state
+            select.disabled = true;
+            savingIndicator.style.display = 'block';
+            
+            fetch('php/backup-api.php?action=set_interval', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'interval=' + encodeURIComponent(interval)
+            })
+            .then(r => r.json())
+            .then(data => {
+                select.disabled = false;
+                savingIndicator.style.display = 'none';
+                
+                if (data.success) {
+                    showMessage('✓ Backup interval updated to: ' + formatInterval(interval), 'success');
+                    loadCurrentInterval();
+                } else {
+                    showMessage('✗ Failed to set interval: ' + data.message, 'error');
+                    // Reset select to previous value
+                    loadCurrentInterval();
+                }
+            })
+            .catch(err => {
+                select.disabled = false;
+                savingIndicator.style.display = 'none';
+                showMessage('✗ Error: ' + err.message, 'error');
+                loadCurrentInterval();
+            });
+        }
+
+        function loadCurrentInterval() {
+            fetch('php/backup-api.php?action=check_interval')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        const interval = data.interval || '1day';
+                        document.getElementById('interval-select').value = interval;
+                        document.getElementById('current-interval').textContent = 'Current: Every ' + formatInterval(interval);
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function formatInterval(interval) {
+            const intervals = {
+                '5min': '5 minutes',
+                '10min': '10 minutes',
+                '30min': '30 minutes',
+                '1h': '1 hour',
+                '3h': '3 hours',
+                '5h': '5 hours',
+                '1day': '1 day',
+                '2day': '2 days',
+                '3day': '3 days',
+                '1week': '1 week'
+            };
+            return intervals[interval] || interval;
+        }
+
+        /**
+         * Auto-backup timer
+         * Checks and creates backups automatically while admin panel is open
+         */
+        function triggerAutoBackup() {
+            // Check if backup is due
+            fetch('php/backup-api.php?action=check_interval')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.is_due) {
+                        // Backup is due, trigger it
+                        fetch('php/backup-api.php?action=auto_backup', { method: 'POST' })
+                            .then(r => r.json())
+                            .then(result => {
+                                if (result.success) {
+                                    console.log('✓ Auto-backup created: ' + result.filename);
+                                    // Refresh backups list immediately
+                                    loadBackups();
+                                } else {
+                                    console.log('Auto-backup check: Not due yet');
+                                }
+                            })
+                            .catch(err => console.log('Auto-backup error:', err.message));
+                    }
+                })
+                .catch(err => console.log('Check interval error:', err.message));
+        }
+
+        // Load backups on page load
+        loadBackups();
+        loadCurrentInterval();
+        
+        // Auto-refresh backups every 30 seconds
+        setInterval(loadBackups, 30000);
+
+        // Auto-trigger backups every 30 seconds (while admin panel is open)
+        setInterval(triggerAutoBackup, 30000);
+    </script>
+</body>
+</html>
